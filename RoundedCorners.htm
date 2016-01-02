@@ -1,0 +1,1090 @@
+﻿<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+    body {
+        margin: auto;
+        width: 960px;
+    }
+
+    path {
+        fill: #ccc;
+        stroke: rgb(83, 99, 124);
+        stroke-width: 1.5px;
+    }
+
+    .area {
+        fill: rgb(83, 99, 124);
+    }
+
+    .certificationArea {
+        fill: rgb(1, 139, 202);
+        stroke-width: 0px;
+    }
+
+    .provisionalArea {
+        fill: rgb(231, 123, 50);
+        stroke-width: 0px;
+    }
+
+    .benefitArea {
+        fill: rgb(139, 49, 25);
+        stroke-width: 0px;
+        cursor:pointer;
+    }
+
+    .legend {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        fill: white;
+        font-size: 9pt;
+    }
+
+    .checkptHeader {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        font-weight: 600;
+        fill: rgb(84, 106, 145);
+        font-size: 9pt;
+    }
+
+    .checkptDesc {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        fill: rgb(139, 139, 139);
+        font-size: 9pt;
+    }
+
+    .certificationIndex {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        fill: rgb(1, 139, 202);
+        font-weight: 600;
+        font-size: 9pt;
+    }
+
+    .benefitIndex {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        fill: rgb(212, 75, 41);
+        font-weight: 600;
+        font-size: 9pt;
+    }
+
+    .durationLabel {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        /*fill: rgb(160, 160, 160);*/
+        fill: white;
+        font-weight: 500;
+        font-size: 8pt;
+    }
+
+    .axis text {
+        font: 11px sans-serif;
+    }
+
+    .axis path {
+        display: none;
+    }
+
+    .axis line {
+        fill: none;
+        stroke: #000;
+        shape-rendering: crispEdges;
+    }
+
+    .grid-background {
+        fill: #ddd;
+    }
+
+    .grid line,
+    .grid path {
+        fill: none;
+        stroke: #fff;
+        shape-rendering: crispEdges;
+    }
+
+    .grid .minor.tick line {
+        stroke-opacity: .5;
+    }
+
+    .brush .extent {
+        stroke: #000;
+        fill:green;
+        fill-opacity: .3;
+        shape-rendering: crispEdges;
+    }
+
+    .gradientArea {
+        fill: url(#gradientForegroundPurple);
+    }
+
+    .eventPath {
+        stroke-width: 2;
+        stroke: rgb(94, 166, 204);
+        fill: none;
+    }
+
+    .todayPointer {
+        width: 12px;
+        height: 12px;
+    }
+
+    .monthBar {
+        stroke-width: 1;
+        stroke: white;
+        fill: none;
+    }
+
+    .boundary {
+        stroke-width: 1;
+        stroke: rgb(221, 227, 215);
+        fill: none;
+    }
+
+    .divInfoSection
+    {
+        position:absolute;
+        width:320px;
+        height:400px;
+        left:1100px;
+        top:20px;
+        padding-top:40px;
+    }
+
+    .divInfoHeader {
+        font-family: 'Segoe UI Semibold', 'Segoe UI', 'Lucida Grande', Verdana, Arial, Helvetica, sans-serif;
+        font-size: 16px;
+        font-style: normal;
+        font-variant: normal;
+        font-weight: normal;
+    }
+
+    .divInfoContent {
+        color: rgb(118, 114, 114);
+        display: block;
+        font-family: sans-serif;
+        font-size: 12px;
+        font-style: normal;
+        font-variant: normal;
+        font-weight: normal;
+        padding-top:15px;
+    }
+</style>
+
+<body>
+    <script src="d3.js"></script>
+    <script>
+        var element = {
+            width: 960,
+            height: 500
+        };
+
+        var range = {
+            lowerBound: parseFloat(-540),
+            upperBound: parseFloat(-540 + element.width)
+        }
+        var initialDate = new Date(2015, 00, 01);
+        var endDate = new Date(2015, 11, 31);
+
+        var monthScale = d3.time.scale().domain([initialDate, endDate]).range([range.lowerBound, range.upperBound]);
+        var sliderScale = d3.time.scale().domain([new Date(2014, 00, 01), new Date(2017, 11, 31)]).range([-540, (-540 + element.width)]);
+        var brush = d3.svg.brush()
+            .x(sliderScale)
+            .extent([new Date(2015, 0, 1), new Date(2016, 0, 1)])
+            .on("brushend", brushended);
+
+        var monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+        var participantEvents = [{
+            date: new Date(2015, 00, 12),
+            desc: "Initial Application"
+        }, {
+            date: new Date(2015, 00, 24),
+            desc: "Participant Certification"
+        }, {
+            date: new Date(2015, 08, 12),
+            desc: "Terminated"
+        }, {
+            date: new Date(2015, 08, 25),
+            desc: "Reinstated"
+        }, ]
+
+        var certificationDeails = [{
+            startDate: new Date(2015, 01, 12),
+            endDate: new Date(2015, 06, 12),
+            type: "Active"
+        }, {
+            startDate: new Date(2015, 06, 18),
+            endDate: new Date(2015, 11, 12),
+            type: "Active"
+        }, {
+            startDate: new Date(2015, 06, 18),
+            endDate: new Date(2015, 07, 05),
+            type: "Provisional"
+        }]
+
+        var issuanceDetails = [{
+            startDate: new Date(2015, 01, 12),
+            endDate: new Date(2015, 01, 30),
+            type: "Active"
+        }, {
+            startDate: new Date(2015, 03, 01),
+            endDate: new Date(2015, 03, 30),
+            type: "Active"
+        }, {
+            startDate: new Date(2015, 04, 01),
+            endDate: new Date(2015, 04, 30),
+            type: "Provisional"
+        }, {
+            startDate: new Date(2015, 05, 01),
+            endDate: new Date(2015, 05, 30),
+            type: "Provisional"
+        }, {
+            startDate: new Date(2015, 07, 01),
+            endDate: new Date(2015, 07, 30),
+            type: "Provisional"
+        }, {
+            startDate: new Date(2015, 08, 01),
+            endDate: new Date(2015, 08, 30),
+            type: "Provisional"
+        }, {
+            startDate: new Date(2015, 09, 01),
+            endDate: new Date(2015, 09, 30),
+            type: "Provisional"
+        }, {
+            startDate: new Date(2015, 10, 01),
+            endDate: new Date(2015, 10, 30),
+            type: "Provisional"
+        }];
+
+        var certificationLabels = [];
+        var certificationDetailsBoundary = [];
+        for (i = 0; i < certificationDeails.length; i++) {
+            if (certificationDeails[i].type == "Active") {
+                certificationDetailsBoundary.push(certificationDeails[i].startDate);
+                certificationDetailsBoundary.push(certificationDeails[i].endDate);
+
+                certificationLabels.push(certificationDeails[i]);
+            }
+        }
+
+        var issuanceDetailsBoundary = [];
+        for (i = 0; i < issuanceDetails.length; i++) {
+            issuanceDetailsBoundary.push(issuanceDetails[i].startDate);
+            issuanceDetailsBoundary.push(issuanceDetails[i].endDate);
+
+        }
+
+        var allMonths = [];
+        initialDate = new Date(2014, 0, 1);
+        endDate = new Date(2017, 11, 31);
+        for (i = initialDate; i < endDate; initialDate.setMonth(initialDate.getMonth() + 1)) {
+            allMonths.push(new Date(i.getFullYear(), i.getMonth(), i.getDate()));
+        }
+
+
+        var svg = d3.select("body").append("svg")
+            .attr("width", element.width)
+            .attr("height", element.height)
+            .append("g")
+            .attr("transform", "translate(480,250)");
+
+        var mainclipContainer = svg.append("svg:defs").append("svg:clipPath")
+             .attr("id", "mainClip")
+             .append("rect")
+             .attr("id", "mainContainerBlock")
+             .attr('width', 1100)
+             .attr('height', 400)
+             .attr('x', -640)
+             .attr('y', -240);
+
+        var mainClipArea = svg.append("g")
+          .attr("clip-path", function (d, i) {
+              return "url(#mainClip)";
+          });
+
+        //svg.append("rect")
+        //.attr("width", 1100)
+        //.attr("height", 400)
+        //.attr("x", -640)
+        //.attr("y", -240)
+        //.attr("fill", "green")
+        //.attr("fill-opacity", ".3");
+
+        //Gradient
+        var gradientForegroundPurple = svg.append("svg:defs").append("svg:linearGradient")
+            .attr('id', 'gradientForegroundPurple')
+            .attr("x1", "0%")
+            .attr("y1", "0%")
+            .attr("x2", "0%")
+            .attr("y2", "100%")
+            .attr("spreadMethod", "pad");
+
+        gradientForegroundPurple.append("svg:stop")
+            .attr("offset", "0%")
+            .attr("stop-color", "rgb(67,80,97)")
+            .attr("stop-opacity", 1);
+
+        gradientForegroundPurple.append("svg:stop")
+            .attr("offset", "100%")
+            .attr("stop-color", "rgb(82,100,124)")
+            .attr("stop-opacity", 1);
+        //Stop
+
+        /* For the drop shadow filter... */
+        //Start
+        //var defs = svg.append("defs");
+
+        //var filter = defs.append("filter")
+        //    .attr("id", "dropshadow")
+        //    //.attr("x", "530")
+        //    //.attr('transform', 'translate(-522, ' + (-115 + 20) + ')')
+        //.attr("width", "200%")
+        //    .attr("height", "200%");
+
+        //filter.append("feOffset")
+        //   .attr("in", "SourceAlpha")
+        //    .attr("dx", 10)
+        //    .attr("dy", 10)
+        //   .attr("result", "offOut");
+
+        //filter.append("feGaussianBlur")
+        //    .attr("in", "offOut")
+        //    .attr("stdDeviation", 2)
+        //    .attr("result", "blurOut");
+
+        ///*filter.append("feOffset")
+        //    .attr("in", "blur")
+        //    .attr("dx", 2)
+        //    .attr("dy", 2)
+        //    .attr("result", "offsetBlur");*/
+        //filter.append("feBlend")
+        //  .attr("in", "SourceGraphic")
+        //   .attr("mode", "normal")
+        //    .attr("in2", "blurOut");
+
+
+        /*  var feMerge = filter.append("feMerge");
+
+          feMerge.append("feMergeNode")
+              .attr("in", "offsetBlur")
+          feMerge.append("feMergeNode")
+              .attr("in", "SourceGraphic");*/
+        //End
+
+        function displayInfoArea() {
+            d3.select("#mainContainerBlock")
+            .transition()
+            .duration(750)
+             .attr("width", 1000)
+            .each("end", addInfoContent)
+            ;
+
+            //addInfoContent();
+        }
+
+        function addInfoContent()
+        {
+            if (!document.getElementById("divInfoArea")) {
+                d3.select("body").append("div")
+                    .attr("id", "divInfoArea")
+                .attr("class", "divInfoSection");
+            }
+
+            d3.select("#divInfoArea")
+                .html("<table width='100%'><tr><td class='divInfoHeader'>Issuance Information</td><td><img src='close.png' width='12px' height='12px' onclick='hideInfoArea();' /></td></tr><tr><td colspan='2' class='divInfoContent'><ul><li>Calcium-set tofu prepared with calcium salts (e.g., calcium sulfate), but may also contain other coagulants (i.e., magnesium chloride).</li><li>May not contain added fats, sugars, oils or sodium.</li><li>Fresh shell Domestic hen’s eggs*: any size, white or brown shells.</li><li>Dried egg mix: must conform to FDA standard of identity at 21 CFR Part 160.105.</li><li>Pasteurized liquid whole eggs: must conform to FDA standard at 21 CFR Part 160.115.</li></ul></td></tr></table>")
+        }
+
+        function hideInfoArea() {
+            d3.select("#divInfoArea").remove();
+
+            d3.select("#mainContainerBlock")
+            .transition()
+            .duration(750)
+             .attr("width", 1100);
+        }
+
+        function plotCharts() {
+            var rect = mainClipArea.append("path")
+                .attr("d", rightRoundedMainRect(-540, -120, 980, 40, 20))
+                .attr("class", "gradientArea");
+
+        
+            //Month Separator
+            //start
+            monthBars = mainClipArea.selectAll("line")
+                .data(allMonths)
+                .enter()
+                .append("line")
+                .attr("x1", function (d) {
+                    var xAxis = parseFloat(monthScale(d));
+                    if (xAxis >= range.lowerBound && xAxis <= range.upperBound)
+                        return xAxis;
+                    else if (xAxis < range.lowerBound) {
+                        return range.lowerBound - 25;
+                    } else if (xAxis > range.upperBound) {
+                        return range.upperBound + 25;
+                    }
+
+                }) //<<== change your code here
+                .attr("y1", -115)
+                .attr("x2", function (d) {
+                    var xAxis = parseFloat(monthScale(d));
+                    if (xAxis >= range.lowerBound && xAxis <= range.upperBound)
+                        return xAxis;
+                    else if (xAxis < range.lowerBound) {
+                        return range.lowerBound - 25;
+                    } else if (xAxis > range.upperBound) {
+                        return range.upperBound + 25;
+                    }
+                }) //<<== and here
+                .attr("y2", (-115 + 40 - 10))
+                .attr("class", "monthBar");
+
+            mainClipArea.selectAll("text")
+                .data(allMonths)
+                .enter()
+                .append("text")
+                .attr("text-anchor", "middle")
+                .attr("fill", "red")
+                .attr('transform', function (d) {
+                    var xAxis = parseFloat(monthScale(d));
+                    if (xAxis >= range.lowerBound && xAxis <= range.upperBound)
+                        return 'translate(' + (monthScale(d) + 17) + ', ' + (-115 + 20) + ')';
+                    else if (xAxis < range.lowerBound) {
+                        return 'translate(' + (range.lowerBound - 50) + ', ' + (-115 + 20) + ')';
+                    } else if (xAxis > range.upperBound) {
+                        return 'translate(' + (range.upperBound + 50) + ', ' + (-115 + 20) + ')';
+                    }
+
+                    //return 'translate(' + (monthScale(d) + 17) + ', ' + (-115 + 20) + ')';
+                })
+                .attr("class", "legend")
+                .text(function (d) {
+                    return monthNames[d.getMonth()];
+                });
+
+            //Flag line
+            //start
+            mainClipArea.selectAll("line.eventPath")
+                .data(participantEvents)
+                .enter()
+                .append("line")
+                .attr("x1", function (d, i) {
+                    var xAxis = monthScale(d.date);
+                    var yAxis = -220;
+
+                    if (i % 2 > 0) {
+                        yAxis = yAxis + 40;
+                    }
+
+                    mainClipArea.append("svg:image")
+                        .attr('x', xAxis + 1)
+                        .attr('y', yAxis)
+                        .attr('width', 14)
+                        .attr('height', 14)
+                        .attr("xlink:href", "arrow.jpg");
+
+                    mainClipArea.append("text")
+                        .attr("text-anchor", "left")
+                        .attr('transform', 'translate(' + (xAxis + 25) + ', ' + (yAxis + 5) + ')')
+                        .attr("class", "checkptHeader")
+                        .text(d.desc);
+
+                    mainClipArea.append("text")
+                        .attr("text-anchor", "left")
+                        .attr('transform', 'translate(' + (xAxis + 25) + ', ' + (yAxis + 20) + ')')
+                        .attr("class", "checkptDesc")
+                        .text(monthNames[d.date.getMonth()] + " " + d.date.getDate());
+                    return monthScale(d.date); //<<== change your code here
+                })
+                .attr("y1", function (d, i) {
+                    var yAxis = -220;
+                    if (i % 2 > 0) {
+                        yAxis = yAxis + 40;
+                    }
+
+                    return yAxis;
+                })
+                .attr("x2", function (d) {
+                    return monthScale(d.date); //<<== change your code here
+                })
+                .attr("y2", -123)
+                .attr("class", "eventPath");
+
+            //svg.append("svg:image")
+            //    .attr('x', -539)
+            //    .attr('y', -220)
+            //    .attr('width', 14)
+            //    .attr('height', 14)
+            //    .attr("xlink:href", "arrow.jpg");
+
+            //svg.append("text")
+            //    .attr("text-anchor", "left")
+            //    .attr("fill", "red")
+            //    .attr('transform', 'translate(' + -515 + ', ' + (-215) + ')')
+            //    .attr("class", "checkptHeader")
+            //    .text("Joining Date");
+
+            //svg.append("text")
+            //    .attr("text-anchor", "left")
+            //    .attr("fill", "red")
+            //    .attr('transform', 'translate(' + -515 + ', ' + (-200) + ')')
+            //    .attr("class", "checkptDesc")
+            //    .text("27 May");
+            //end
+
+            //Flag line
+            //start
+            //svg.append("line")
+            //    .attr("x1", -540) //<<== change your code here
+            //    .attr("y1", -220)
+            //    .attr("x2", -540) //<<== and here
+            //    .attr("y2", -123)
+            //    .style("stroke-width", 2)
+            //    .style("stroke", "rgb(94,166,204)")
+            //    .style("fill", "none");
+
+            //svg.append("svg:image")
+            //    .attr('x', -539)
+            //    .attr('y', -220)
+            //    .attr('width', 14)
+            //    .attr('height', 14)
+            //    .attr("xlink:href", "arrow.jpg");
+
+            //svg.append("text")
+            //    .attr("text-anchor", "left")
+            //    .attr("fill", "red")
+            //    .attr('transform', 'translate(' + -515 + ', ' + (-215) + ')')
+            //    .attr("class", "checkptHeader")
+            //    .text("Joining Date");
+
+            //svg.append("text")
+            //    .attr("text-anchor", "left")
+            //    .attr("fill", "red")
+            //    .attr('transform', 'translate(' + -515 + ', ' + (-200) + ')')
+            //    .attr("class", "checkptDesc")
+            //    .text("27 May");
+            //end
+
+            //Legend
+            mainClipArea.append("text")
+                .attr("text-anchor", "end")
+                .attr('transform', 'translate(' + -560 + ', ' + (-25) + ')')
+                .attr("class", "certificationIndex")
+                .text("Certification");
+
+            mainClipArea.append("text")
+                .attr("text-anchor", "end")
+                .attr('transform', 'translate(' + -560 + ', ' + (25) + ')')
+                .attr("class", "benefitIndex")
+                .text("Issuance");
+
+            var clip = mainClipArea.append("svg:defs").append("svg:clipPath")
+                .attr("id", "clipC1")
+                .append("rect")
+                .attr("id","containerBlock")
+                .attr('width', 950)
+                .attr('height', 150)
+                .attr('x', -540)
+                .attr('y', -78);
+
+
+            //Certification Phase
+            var clipArea = mainClipArea.append("g")
+                .attr("clip-path", function (d, i) {
+                    return "url(#clipC1)";
+                });
+
+            clipArea.append("svg:image")
+            .attr('x', monthScale(new Date()))
+            .attr('y', -79)
+            .attr('id', 'todayPointer')
+            .attr('width', 12)
+            .attr('height', 12)
+            .attr("xlink:href", "toparrow.png");
+
+            var certificationIndex = clipArea.append("g").attr("id", "gCertification");
+
+
+            var certificationArea = certificationIndex.selectAll("path.certificationArea")
+                .data(certificationDeails)
+                .enter()
+                .append("path")
+                .attr("d", function (d) {
+                    var xScale = monthScale(d.startDate);
+                    var yScale = monthScale(d.endDate);
+
+                    if (d.type == "Active") {
+                        //svg.append("line")
+                        //    .attr("x1", xScale - 10) //<<== change your code here
+                        //    .attr("y1", (-120 - (-40) + 2))
+                        //    .attr("x2", xScale - 10) //<<== and here
+                        //    .attr("y2", -25)
+                        //    .attr("class", "boundary");
+
+                        //svg.append("line")
+                        //    .attr("x1", yScale) //<<== change your code here
+                        //    .attr("y1", (-120 - (-40) + 2))
+                        //    .attr("x2", yScale) //<<== and here
+                        //    .attr("y2", -25)
+                        //    .attr("class", "boundary");
+
+                        //svg.append("text")
+                        //    .attr("text-anchor", "middle")
+                        //    .attr('transform', 'translate(' + (yScale + xScale - 10) / 2 + ', ' + (-27) + ')')
+                        //    .attr("class", "durationLabel")
+                        //    .text(monthNames[d.startDate.getMonth()] + " " + d.startDate.getFullYear() + " - " + monthNames[d.endDate.getMonth()] + " " + d.endDate.getFullYear());
+                        //.text("May 2015 - Oct 2015");
+                    }
+
+                    return rightRoundedRect(xScale, -40, (yScale - xScale), 20, 10);
+                })
+                .attr("class", function (d) {
+                    if (d.type == "Provisional")
+                        return "provisionalArea";
+                    else
+                        return "certificationArea"
+                });
+
+            certificationIndex.selectAll("line.boundary")
+                .data(certificationDetailsBoundary)
+                .enter()
+                .append("line")
+                .attr("x1", function (d) {
+                    return monthScale(d);
+                })
+                .attr("y1", (-120 - (-40) + 2))
+                .attr("x2", function (d) {
+                    return monthScale(d);
+                })
+                .attr("y2", -25)
+                .attr("class", "boundary");
+
+            certificationIndex.selectAll("text")
+                .data(certificationLabels)
+                .enter()
+                .append("text")
+                .attr("text-anchor", "middle")
+                .attr('transform', function (d) {
+                    var xScale = monthScale(d.startDate);
+                    var yScale = monthScale(d.endDate);
+
+                    return 'translate(' + (yScale + xScale - 10) / 2 + ', ' + (-27) + ')';
+                })
+                .attr("class", "durationLabel")
+                .text(function (d) {
+                    return monthNames[d.startDate.getMonth()] + " " + d.startDate.getFullYear() + " - " + monthNames[d.endDate.getMonth()] + " " + d.endDate.getFullYear()
+                });
+
+            //      certificationArea.append("clipPath")
+            //  .attr('id', function (d, i) { return "clip" + i })
+            //  .append("rect")
+            //.attr('width', 950)
+            //.attr('height', 150)
+            //           .attr('x', -540)
+            //.attr('y', -78)
+            //          .attr("clip-path", function (d, i) { return "url(#clip" + i + ")"; })
+            //           .style("fill", d3.rgb(230, 230, 230))
+            //           .style("stroke", d3.rgb(150, 150, 150))
+
+
+            //svg.append("line")
+            //    .attr("x1", -500) //<<== change your code here
+            //    .attr("y1", (-120 - (-40) + 2))
+            //    .attr("x2", -500) //<<== and here
+            //    .attr("y2", -25)
+            //    .style("stroke-width", 1)
+            //    .style("stroke", "rgb(221,227,215)")
+            //    .style("fill", "none");
+
+            //svg.append("line")
+            //    .attr("x1", -500 + 200 + 10) //<<== change your code here
+            //    .attr("y1", (-120 - (-40) + 2))
+            //    .attr("x2", -500 + 200 + 10) //<<== and here
+            //    .attr("y2", -25)
+            //    .style("stroke-width", 1)
+            //    .style("stroke", "rgb(221,227,215)")
+            //    .style("fill", "none");
+
+            //svg.append("text")
+            //    .attr("text-anchor", "middle")
+            //    .attr('transform', 'translate(' + (-490 + 95) + ', ' + (-45) + ')')
+            //    .attr("class", "durationLabel")
+            //    .text("May 2015 - Oct 2015");
+
+            var issuanceIndex = clipArea.append("g").attr("id", "gIssuance")
+
+            issuanceIndex.selectAll("path.benefitArea")
+                .data(issuanceDetails)
+                .enter()
+                .append("path")
+                .attr("d", function (d) {
+                    var xScale = monthScale(d.startDate);
+                    var yScale = monthScale(d.endDate);
+
+
+
+                    return rightRoundedRect(xScale, 10, (yScale - xScale), 20, 10);
+                    //rightRoundedRect(-490, -5, 200, 20, 10);
+                })
+                .on("click", displayInfoArea)
+                .attr("class", "benefitArea");
+
+            issuanceIndex.selectAll("line.boundary")
+                .data(issuanceDetailsBoundary)
+                .enter()
+                .append("line")
+                .attr("x1", function (d) {
+                    return monthScale(d);
+                })
+                .attr("y1", -19)
+                .attr("x2", function (d) {
+                    return monthScale(d);
+                })
+                .attr("y2", 25)
+                .attr("class", "boundary");
+
+            issuanceIndex.selectAll("text")
+                .data(issuanceDetails)
+                .enter()
+                .append("text")
+                .attr("text-anchor", "middle")
+                .attr('transform', function (d) {
+                    var xScale = monthScale(d.startDate);
+                    var yScale = monthScale(d.endDate);
+
+                    return 'translate(' + (yScale + xScale - 10) / 2 + ', ' + 23 + ')';
+                })
+                .attr("class", "durationLabel")
+                .attr("fill", "white")
+                .text(function (d) {
+                    return monthNames[d.startDate.getMonth()];
+                });
+
+            generateSliderControl(mainClipArea);
+        }
+
+        plotCharts();
+
+        function generateSliderControl(mainClipArea) {
+
+            var sliderGroup = mainClipArea.append("g");
+
+            var sliderElement = sliderGroup.append("rect")
+                .attr("class", "grid-background")
+                .attr('transform', 'translate(' + -550 + ', ' + 100 + ')')
+                .attr("width", element.width)
+                .attr("height", 15);
+
+            sliderGroup.append("g")
+                .attr("class", "grid")
+                .attr("transform", "translate(-10," + 115 + ")")
+                .call(d3.svg.axis()
+                    .scale(sliderScale)
+                    .orient("bottom")
+                    .ticks(d3.time.months, 1)
+                    .tickSize(-15)
+                    .tickFormat(""))
+                .selectAll(".tick")
+                .classed("minor", function (d) {
+                    return d.getHours();
+                });
+
+            sliderGroup.append("g")
+                .attr("class", "x axis")
+                .attr("transform", "translate(-10," + 115 + ")")
+                .call(d3.svg.axis()
+                    .scale(sliderScale)
+                    .orient("bottom")
+                    .ticks(d3.time.years)
+                    .tickPadding(0))
+                .selectAll("text")
+                .attr("x", 6)
+                .style("text-anchor", null);
+
+            var gBrush = sliderGroup.append("g")
+                .attr("class", "brush")
+                .attr("transform", "translate(-10,100)")
+                .call(brush)
+                .call(brush.event);
+
+            gBrush.selectAll("rect")
+                .attr("height", 15);
+        }
+
+        function brushended() {
+            //alert("in");
+            if (!d3.event.sourceEvent) return; // only transition after input
+            var extent0 = brush.extent(),
+                extent1 = extent0.map(d3.time.month);
+
+            // if empty when rounded, use floor & ceil instead
+            if (extent1[0] >= extent1[1]) {
+                extent1[0] = d3.time.month.floor(extent0[0]);
+                extent1[1] = d3.time.month.ceil(extent0[1]);
+            }
+
+            d3.select(this).transition()
+                .call(brush.extent(extent1))
+                .call(brush.event);
+
+            monthScale.domain(brush.extent());
+            expand(brush.extent());
+        }
+
+        function expand(ranges) {
+
+            //alert(ranges.length);
+
+            //initialDate = new Date(2015, 00, 01);
+            //endDate = new Date(2016, 06, 31);
+
+            ////monthScale.domain([initialDate, endDate]);
+            //var newValue = monthScale(new Date(2015, 06, 01));
+
+            //var scaleDiff = newValue - oldValue;
+
+
+            d3.select("#todayPointer")
+                .transition()
+                .duration(750)
+                .attr('x', monthScale(new Date()));
+
+            //allMonths.splice(0, 1);
+
+            //allMonths = [];
+
+            //for (currMonth = ranges[0]; currMonth < ranges[1]; currMonth.setMonth(currMonth.getMonth() + 1)) {
+            //    allMonths.push(new Date(currMonth.getFullYear(), currMonth.getMonth(), currMonth.getDate()));
+            //}
+
+            //svg.selectAll("line.monthBar")
+            //    //.transition()
+            //    //.duration(1500)
+            //    .data(allMonths).exit().remove();
+
+            //svg.selectAll("line.monthBar")
+            //    //.transition()
+            //    //.duration(1500)
+            //    .data(allMonths)
+            //    .enter()
+            //    .append("line")
+            //    //.transition()
+            //    //.delay(750)
+            //    .attr("x1", function (d) {
+            //        return monthScale(d);
+            //    }) //<<== change your code here
+            //    .attr("y1", -115)
+            //    .attr("x2", function (d) {
+            //        return monthScale(d);
+            //    }) //<<== and here
+            //    .attr("y2", (-115 + 40 - 10))
+            //    .attr("class", "monthBar");
+
+            mainClipArea.selectAll("line.monthBar")
+                //.transition()
+                //.duration(1500)
+                .data(allMonths)
+                //.update()
+                //.append("line")
+                .transition()
+                .duration(750)
+                .attr("x1", function (d) {
+                    var xAxis = parseFloat(monthScale(d));
+                    if (xAxis >= range.lowerBound && xAxis <= range.upperBound)
+                        return xAxis;
+                    else if (xAxis < range.lowerBound) {
+                        return range.lowerBound - 25;
+                    } else if (xAxis > range.upperBound) {
+                        return range.upperBound + 25;
+                    }
+
+                }) //<<== change your code here
+                .attr("y1", -115)
+                .attr("x2", function (d) {
+                    var xAxis = parseFloat(monthScale(d));
+                    if (xAxis >= range.lowerBound && xAxis <= range.upperBound)
+                        return xAxis;
+                    else if (xAxis < range.lowerBound) {
+                        return range.lowerBound - 25;
+                    } else if (xAxis > range.upperBound) {
+                        return range.upperBound + 25;
+                    }
+                }) //<<== and here
+                .attr("y2", (-115 + 40 - 10));
+
+            //svg.selectAll("text.legend")
+            //   .data(allMonths)
+            //.exit().remove().transition().duration(750);
+
+            mainClipArea.selectAll("text.legend")
+                .data(allMonths)
+                .transition()
+                .duration(750)
+                .attr("text-anchor", "middle")
+                .attr("fill", "red")
+                .attr('transform', function (d) {
+                    var xAxis = parseFloat(monthScale(d));
+                    if (xAxis >= range.lowerBound && xAxis <= range.upperBound)
+                        return 'translate(' + (monthScale(d) + 17) + ', ' + (-115 + 20) + ')';
+                    else if (xAxis < range.lowerBound) {
+                        return 'translate(' + (range.lowerBound - 50) + ', ' + (-115 + 20) + ')';
+                    } else if (xAxis > range.upperBound) {
+                        return 'translate(' + (range.upperBound + 50) + ', ' + (-115 + 20) + ')';
+                    }
+
+                    //return 'translate(' + (monthScale(d) + 17) + ', ' + (-115 + 20) + ')';
+                })
+                .attr("class", "legend")
+                .text(function (d) {
+                    return monthNames[d.getMonth()];
+                });
+
+            //svg.selectAll("text.legend")
+            //    .data(allMonths)
+            //    .enter()
+            //    .append("text")
+            //    .transition()
+            //    .delay(750)
+            //    .attr("text-anchor", "middle")
+            //    .attr("fill", "red")
+            //    .attr('transform', function (d) {
+            //        return 'translate(' + (monthScale(d) + 17) + ', ' + (-115 + 20) + ')';
+            //    })
+            //    .attr("class", "legend")
+            //    .text(function (d) {
+            //        return monthNames[d.getMonth()];
+            //    });
+
+
+            mainClipArea.select("#gCertification").selectAll("path")
+                .data(certificationDeails)
+                .transition()
+                .duration(750)
+                .attr("d", function (d) {
+                    var xScale = monthScale(d.startDate);
+                    var yScale = monthScale(d.endDate);
+
+                    //if (d.type == "Active") {
+                    //    svg.append("line")
+                    //        .attr("x1", xScale - 10) //<<== change your code here
+                    //        .attr("y1", (-120 - (-40) + 2))
+                    //        .attr("x2", xScale - 10) //<<== and here
+                    //        .attr("y2", -25)
+                    //        .style("stroke-width", 1)
+                    //        .style("stroke", "rgb(221,227,215)")
+                    //        .style("fill", "none");
+
+                    //    svg.append("line")
+                    //        .attr("x1", yScale) //<<== change your code here
+                    //        .attr("y1", (-120 - (-40) + 2))
+                    //        .attr("x2", yScale) //<<== and here
+                    //        .attr("y2", -25)
+                    //        .style("stroke-width", 1)
+                    //        .style("stroke", "rgb(221,227,215)")
+                    //        .style("fill", "none");
+
+                    //    svg.append("text")
+                    //        .attr("text-anchor", "middle")
+                    //        .attr('transform', 'translate(' + (yScale + xScale - 10) / 2 + ', ' + (-27) + ')')
+                    //        .attr("class", "durationLabel")
+                    //        .text(monthNames[d.startDate.getMonth()] + " " + d.startDate.getFullYear() + " - " + monthNames[d.endDate.getMonth()] + " " + d.endDate.getFullYear());
+                    //    //.text("May 2015 - Oct 2015");
+                    //}
+
+                    return rightRoundedRect(xScale, -40, (yScale - xScale), 20, 10);
+                });
+
+            mainClipArea.select("#gCertification").selectAll("line")
+                .data(certificationDetailsBoundary)
+                .transition()
+                .duration(750)
+                .attr("x1", function (d) {
+                    return monthScale(d);
+                })
+                .attr("x2", function (d) {
+                    return monthScale(d);
+                });
+
+
+            mainClipArea.select("#gCertification").selectAll("text")
+                .data(certificationLabels)
+                .transition()
+                .duration(750)
+                .attr('transform', function (d) {
+                    var xScale = monthScale(d.startDate);
+                    var yScale = monthScale(d.endDate);
+
+                    return 'translate(' + (yScale + xScale - 10) / 2 + ', ' + (-27) + ')';
+                });
+
+
+            mainClipArea.select("#gIssuance").selectAll("path")
+                .data(issuanceDetails)
+                .transition()
+                .duration(750)
+                .attr("d", function (d) {
+                    var xScale = monthScale(d.startDate);
+                    var yScale = monthScale(d.endDate);
+
+
+
+                    return rightRoundedRect(xScale, 10, (yScale - xScale), 20, 10);
+                    //rightRoundedRect(-490, -5, 200, 20, 10);
+                });
+
+            mainClipArea.select("#gIssuance").selectAll("line")
+                .data(issuanceDetailsBoundary)
+                .transition()
+                .duration(750)
+                .attr("x1", function (d) {
+                    return monthScale(d);
+                })
+                .attr("x2", function (d) {
+                    return monthScale(d);
+                });
+
+
+            mainClipArea.select("#gIssuance").selectAll("text")
+                .data(issuanceDetails)
+                .transition()
+                .duration(750)
+                .attr('transform', function (d) {
+                    var xScale = monthScale(d.startDate);
+                    var yScale = monthScale(d.endDate);
+
+                    return 'translate(' + (yScale + xScale - 10) / 2 + ', ' + 23 + ')';
+                });
+
+
+
+            //plotCharts();
+        }
+        //x.domain(d3.extent(data, function (d) { return d.date; }));
+        //y.domain([0, d3.max(data, function (d) { return d.close; })]);
+
+
+        // Returns path data for a rectangle with rounded right corners.
+        // Note: it’s probably easier to use a <rect> element with rx and ry attributes!
+        // The top-left corner is ⟨x,y⟩.
+        function rightRoundedRect(x, y, width, height, radius) {
+            return "M" + (x + radius) + "," + y + "h" + (width - radius * 2) + "a" + radius + "," + radius + " 0 0 1 " + radius + "," + radius + "v" + (height - 2 * radius) + "a" + radius + "," + radius + " 0 0 1 " + -radius + "," + radius + "h" + (radius * 2 - width) + "a" + radius + "," + radius + " 0 0 1 " + -radius + "," + -radius + "v" + (height - 2 * radius) + "a" + radius + "," + radius + " 0 0 1 " + radius + "," + -radius + "z";
+        }
+
+        function rightRoundedMainRect(x, y, width, height, radius) {
+            return "M" + x + "," + y + "h" + (width - radius) + "a" + radius + "," + radius + " 0 0 1 " + radius + "," + radius + "v" + (height - 2 * radius) + "a" + radius + "," + radius + " 0 0 1 " + -radius + "," + radius + "h" + (radius - width) + "a" + radius + "," + radius + " 0 0 1 " + -radius + "," + -radius + "v" + (height - 2 * radius) + "a" + radius + "," + radius + " 0 0 1 " + radius + "," + -radius + "z";
+        }
+    </script>
+    <input type="button" onclick="hideInfoArea();" />
+    <!--<table width="100%">
+        <tr>
+            <td class="divInfoHeader">Issuance Information</td>
+            <td><img src='close.png' /></td>
+        </tr>
+        <tr>
+            <td colspan="2" class="divInfoContent">
+                <ul>
+                    <li>Calcium-set tofu prepared with calcium salts (e.g., calcium sulfate), but may also contain other coagulants (i.e., magnesium chloride).</li>
+                    <li>May not contain added fats, sugars, oils or sodium.</li>
+                </ul>
+            </td>
+        </tr>
+    </table>-->
+    
+</body>
